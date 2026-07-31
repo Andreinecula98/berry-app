@@ -39,6 +39,29 @@ Deschide `http://localhost:5173`. Fișierul `.env` conține `VITE_API_URL=http:/
 
 ---
 
+## CI/CD cu GitHub Actions
+
+Repo-ul conține `.github/workflows/ci-cd.yml`, care la fiecare push/PR pe `main`:
+1. Rulează testele automate ale backend-ului (`pytest`).
+2. Face build de test pentru frontend (`npm run build`).
+3. **Doar dacă ambele reușesc** și e push direct pe `main`, declanșează deploy-ul explicit pe Render și Vercel prin **Deploy Hooks** — astfel un push care strică ceva nu ajunge niciodată live.
+
+### Configurare inițială (o singură dată)
+
+**Render** (dezactivează auto-deploy și generează un Deploy Hook):
+1. Serviciul `berry-app-backend` → Settings → Auto-Deploy → setează pe **No**.
+2. Settings → Deploy Hook → copiază URL-ul generat.
+3. În GitHub: repo → Settings → Secrets and variables → Actions → **New repository secret** → nume `RENDER_DEPLOY_HOOK_URL`, valoare = URL-ul copiat.
+
+**Vercel** (ignoră build-urile automate din git push, generează un Deploy Hook):
+1. Proiect → Settings → Git → **Ignored Build Step** → setează comanda la `exit 0` (astfel push-urile normale nu mai declanșează build; deploy hook-urile ignoră această setare și rulează oricum).
+2. Proiect → Settings → Git → **Deploy Hooks** → creează unul nou pentru branch-ul `main` → copiază URL-ul.
+3. În GitHub: adaugă secret nou `VERCEL_DEPLOY_HOOK_URL` cu acel URL.
+
+După acest setup, orice push pe `main` rulează testele, iar deploy-ul real se întâmplă doar dacă totul trece.
+
+---
+
 ## Deploy în producție (Render pentru backend + Vercel pentru frontend)
 
 ### 1. Pune codul pe GitHub

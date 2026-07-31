@@ -11,7 +11,7 @@ from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-from .models import Submission
+from .models import FRUIT_FIELDS, Submission
 
 STATUS_LABELS = {
     "pending": "Pending",
@@ -32,6 +32,7 @@ HEADERS = [
     "Small green fruit",
     "Opened flowers",
     "Buds",
+    "Overall Avg",
     "Status",
     "Submitted At",
     "Reviewed By",
@@ -44,32 +45,51 @@ def _status_label(sub: Submission) -> str:
 
 
 
-def _rows_for(sub: Submission) -> list[list]:
+def _rows_for(sub: Submission) -> list[tuple[list, bool]]:
     reviewed_by = (sub.reviewed_by.full_name or sub.reviewed_by.username) if sub.reviewed_by else "-"
     time_value = sub.time.strftime("%H:%M") if sub.time else ""
     submitted_at = sub.created_at.strftime("%Y-%m-%d %H:%M") if sub.created_at else ""
     team_leader = sub.employee.full_name or sub.employee.username
+    submission_details = [
+        sub.field.name,
+        team_leader,
+        sub.date.isoformat(),
+        time_value,
+    ]
 
-    return [
-        [
-            sub.field.name,
-            team_leader,
-            sub.date.isoformat(),
-            time_value,
-            meter.meter_number,
-            meter.orange_fruit,
-            meter.white_pink_fruit,
-            meter.white_fruit,
-            meter.big_green_fruit,
-            meter.small_green_fruit,
-            meter.opened_flowers,
-            meter.buds,
-            _status_label(sub),
-            submitted_at,
-            reviewed_by,
-        ]
+    rows = [
+        (
+            [
+                *submission_details,
+                meter.meter_number,
+                meter.orange_fruit,
+                meter.white_pink_fruit,
+                meter.white_fruit,
+                meter.big_green_fruit,
+                meter.small_green_fruit,
+                meter.opened_flowers,
+                meter.buds,
+                "-",
+                _status_label(sub),
+                submitted_at,
+                reviewed_by,
+            ],
+            False,
+        )
         for meter in sub.meters
     ]
+
+    average_row = [
+        *submission_details,
+        f"AVG (n={len(sub.meters)})",
+        *[sub.averages[field] for field in FRUIT_FIELDS],
+        sub.overall_average,
+        _status_label(sub),
+        submitted_at,
+        reviewed_by,
+    ]
+    rows.append((average_row, True))
+    return rows
 
 
 
@@ -85,11 +105,16 @@ def build_excel_report(submissions: Sequence[Submission]) -> bytes:
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
 
+    average_fill = PatternFill(start_color="F3E8FF", end_color="F3E8FF", fill_type="solid")
     for sub in submissions:
-        for row in _rows_for(sub):
+        for row, is_average in _rows_for(sub):
             ws.append(row)
+            if is_average:
+                for cell in ws[ws.max_row]:
+                    cell.font = Font(bold=True)
+                    cell.fill = average_fill
 
-    widths = [24, 20, 12, 10, 9, 12, 15, 12, 15, 15, 15, 10, 12, 18, 18]
+    widths = [24, 20, 12, 10, 11, 12, 15, 12, 15, 15, 15, 10, 12, 12, 18, 18]
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -113,8 +138,12 @@ def build_pdf_report(submissions: Sequence[Submission]) -> bytes:
     elements = [Paragraph("Daily TL Counts Report", styles["Title"]), Spacer(1, 0.35 * cm)]
 
     rows = []
+    average_row_indexes = []
     for sub in submissions:
-        rows.extend(_rows_for(sub))
+        for row, is_average in _rows_for(sub):
+            rows.append(row)
+            if is_average:
+                average_row_indexes.append(len(rows))
     data = [HEADERS] + rows
     if len(data) == 1:
         data.append(["-"] * len(HEADERS))
@@ -130,11 +159,20 @@ def build_pdf_report(submissions: Sequence[Submission]) -> bytes:
                 ("LEADING", (0, 0), (-1, -1), 7),
                 ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#d1d5db")),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f4f6f8")]),
-                ("ALIGN", (2, 0), (13, -1), "CENTER"),
+                ("ALIGN", (2, 0), (14, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ]
         )
     )
+    for row_index in average_row_indexes:
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, row_index), (-1, row_index), colors.HexColor("#f3e8ff")),
+                    ("FONTNAME", (0, row_index), (-1, row_index), "Helvetica-Bold"),
+                ]
+            )
+        )
     elements.append(table)
     doc.build(elements)
     return buffer.getvalue()

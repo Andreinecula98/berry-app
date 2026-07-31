@@ -35,6 +35,10 @@ class UserCreate(BaseModel):
     role: UserRole = UserRole.employee
 
 
+class PasswordReset(BaseModel):
+    password: str = Field(min_length=6, max_length=100)
+
+
 class FieldCreate(BaseModel):
     name: str = Field(min_length=1)
     total_meters: int = Field(gt=0)
@@ -77,7 +81,17 @@ class SubmissionCreate(BaseModel):
     field_id: int
     date: dt_date
     time: Optional[dt_time] = None
-    meters: list[MeterReadingCreate] = Field(min_length=1)
+    meters: list[MeterReadingCreate] = Field(min_length=1, max_length=3)
+
+
+class FruitAverages(BaseModel):
+    orange_fruit: float
+    white_pink_fruit: float
+    white_fruit: float
+    big_green_fruit: float
+    small_green_fruit: float
+    opened_flowers: float
+    buds: float
 
 
 class SubmissionOut(BaseModel):
@@ -91,6 +105,8 @@ class SubmissionOut(BaseModel):
     employee: UserOut
     reviewed_by: Optional[UserOut] = None
     meters: list[MeterReadingOut]
+    averages: FruitAverages
+    overall_average: float
 
     model_config = ConfigDict(from_attributes=True)
 

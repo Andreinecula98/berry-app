@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from . import models, schemas
@@ -68,6 +69,28 @@ FIELD_SEED_DATA = [
     ("25MAN GUL FAVORI", 20271),
 ]
 
+
+def migrate_legacy_schema():
+    """One-time repair for databases created before the var1/var2/var3
+    submission model was replaced by the Field/MeterReading based one.
+    `Base.metadata.create_all()` never alters existing tables, so a
+    pre-existing `submissions` table from the old schema would otherwise
+    stick around and make every query against it fail with a "column does
+    not exist" error. Since the old columns hold placeholder data that is
+    no longer meaningful, we simply drop and let create_all rebuild it.
+    """
+    inspector = inspect(engine)
+    if "submissions" not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns("submissions")}
+    legacy_columns = {"var1", "var2", "var3", "average_berry_weight"}
+    if columns & legacy_columns:
+        with engine.begin() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS meter_readings"))
+            conn.execute(text("DROP TABLE IF EXISTS submissions"))
+
+
+migrate_legacy_schema()
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Berry App API")
@@ -221,6 +244,38 @@ def create_user(
 @app.get("/admin/users", response_model=list[schemas.UserOut])
 def list_users(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
     return db.query(User).order_by(User.created_at.desc()).all()
+
+
+@app.patch("/admin/users/{user_id}/password", response_model=schemas.UserOut)
+def reset_user_password(
+    user_id: int,
+    payload: schemas.PasswordReset,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.password_hash = hash_password(payload.password)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@app.delete("/admin/users/{user_id}", status_code=204)
+def delete_user(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role == UserRole.admin:
+        raise HTTPException(status_code=400, detail="Only employee accounts can be deleted")
+    db.delete(user)
+    db.commit()
+    return Response(status_code=204)
 
 
 @app.post("/admin/fields", response_model=schemas.FieldOut, status_code=201)

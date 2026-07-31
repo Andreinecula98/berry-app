@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -37,6 +37,10 @@ function createMeter() {
   };
 }
 
+function formatAverage(value) {
+  return Number(value ?? 0).toFixed(2);
+}
+
 export default function EmployeeDashboard() {
   const [fields, setFields] = useState([]);
   const [fieldId, setFieldId] = useState("");
@@ -44,6 +48,7 @@ export default function EmployeeDashboard() {
   const [time, setTime] = useState("");
   const [meters, setMeters] = useState([createMeter()]);
   const [submissions, setSubmissions] = useState([]);
+  const [expandedSubmissions, setExpandedSubmissions] = useState(() => new Set());
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { auth, logout } = useAuth();
@@ -81,6 +86,9 @@ export default function EmployeeDashboard() {
   }
 
   function addMeter() {
+    if (meters.length >= 3) {
+      return;
+    }
     setMeters((current) => [...current, createMeter()]);
   }
 
@@ -116,6 +124,18 @@ export default function EmployeeDashboard() {
   function handleLogout() {
     logout();
     navigate("/login");
+  }
+
+  function toggleSubmissionDetails(submissionId) {
+    setExpandedSubmissions((current) => {
+      const next = new Set(current);
+      if (next.has(submissionId)) {
+        next.delete(submissionId);
+      } else {
+        next.add(submissionId);
+      }
+      return next;
+    });
   }
 
   return (
@@ -186,7 +206,9 @@ export default function EmployeeDashboard() {
             </div>
 
             <div className="header-actions">
-              <button type="button" className="secondary" onClick={addMeter}>Add meter</button>
+              <button type="button" className="secondary" onClick={addMeter} disabled={meters.length >= 3}>
+                Add meter (max 3)
+              </button>
               <button type="submit" disabled={loading || !fieldId}>
                 {loading ? "Submitting..." : "Submit for approval"}
               </button>
@@ -206,23 +228,78 @@ export default function EmployeeDashboard() {
                   <th># of meters</th>
                   <th>Status</th>
                   <th>Submitted At</th>
+                  <th>Details</th>
                 </tr>
               </thead>
               <tbody>
-                {submissions.map((submission) => (
-                  <tr key={submission.id}>
-                    <td>{submission.field.name}</td>
-                    <td>{submission.date}</td>
-                    <td>{submission.meters.length}</td>
-                    <td>
-                      <span className={`badge badge-${submission.status}`}>{statusLabel[submission.status]}</span>
-                    </td>
-                    <td>{new Date(submission.created_at).toLocaleString()}</td>
-                  </tr>
-                ))}
+                {submissions.map((submission) => {
+                  const isExpanded = expandedSubmissions.has(submission.id);
+
+                  return (
+                    <Fragment key={submission.id}>
+                      <tr>
+                        <td>{submission.field.name}</td>
+                        <td>{submission.date}</td>
+                        <td>{submission.meters.length}</td>
+                        <td>
+                          <span className={`badge badge-${submission.status}`}>{statusLabel[submission.status]}</span>
+                        </td>
+                        <td>{new Date(submission.created_at).toLocaleString()}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => toggleSubmissionDetails(submission.id)}
+                          >
+                            {isExpanded ? "▾ Details" : "▸ Details"}
+                          </button>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr className="detail-row">
+                          <td colSpan={6}>
+                            <div className="submission-detail">
+                              <div className="table-scroll">
+                                <table className="detail-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Meter</th>
+                                      {meterFields.map((field) => (
+                                        <th key={field.key}>{field.label}</th>
+                                      ))}
+                                      <th>Overall Avg</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {submission.meters.map((meter) => (
+                                      <tr key={meter.id}>
+                                        <td>{meter.meter_number}</td>
+                                        {meterFields.map((field) => (
+                                          <td key={field.key}>{meter[field.key]}</td>
+                                        ))}
+                                        <td>-</td>
+                                      </tr>
+                                    ))}
+                                    <tr className="detail-average-row">
+                                      <td>Average</td>
+                                      {meterFields.map((field) => (
+                                        <td key={field.key}>{formatAverage(submission.averages[field.key])}</td>
+                                      ))}
+                                      <td>{formatAverage(submission.overall_average)}</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
                 {submissions.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="empty">No submissions yet</td>
+                    <td colSpan={6} className="empty">No submissions yet</td>
                   </tr>
                 )}
               </tbody>

@@ -6,6 +6,16 @@ from sqlalchemy.orm import relationship
 
 from .database import Base
 
+FRUIT_FIELDS = (
+    "orange_fruit",
+    "white_pink_fruit",
+    "white_fruit",
+    "big_green_fruit",
+    "small_green_fruit",
+    "opened_flowers",
+    "buds",
+)
+
 
 class UserRole(str, enum.Enum):
     employee = "employee"
@@ -28,7 +38,12 @@ class User(Base):
     role = Column(Enum(UserRole), nullable=False, default=UserRole.employee)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    submissions = relationship("Submission", back_populates="employee", foreign_keys="Submission.employee_id")
+    submissions = relationship(
+        "Submission",
+        back_populates="employee",
+        foreign_keys="Submission.employee_id",
+        cascade="all, delete-orphan",
+    )
 
 
 class Field(Base):
@@ -64,6 +79,24 @@ class Submission(Base):
         cascade="all, delete-orphan",
         order_by="MeterReading.meter_number",
     )
+
+    @property
+    def averages(self) -> dict[str, float]:
+        meter_count = len(self.meters)
+        if meter_count == 0:
+            return {field: 0.0 for field in FRUIT_FIELDS}
+        return {
+            field: round(sum(getattr(meter, field) for meter in self.meters) / meter_count, 2)
+            for field in FRUIT_FIELDS
+        }
+
+    @property
+    def overall_average(self) -> float:
+        meter_count = len(self.meters)
+        if meter_count == 0:
+            return 0.0
+        total = sum(sum(getattr(meter, field) for field in FRUIT_FIELDS) for meter in self.meters)
+        return round(total / meter_count, 2)
 
 
 class MeterReading(Base):

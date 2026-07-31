@@ -189,6 +189,14 @@ button.danger {
   .topbar-right button {
     width: auto;
   }
+
+  .inline-form {
+    width: 100%;
+  }
+
+  .inline-form input {
+    width: 100%;
+  }
 }
 
 .preview {
@@ -267,9 +275,42 @@ td {
   gap: 0.4rem;
 }
 
+.user-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f0e6f8;
+}
+
+.user-list li:last-child {
+  border-bottom: none;
+}
+
+.user-list button {
+  width: auto;
+  align-self: flex-start;
+}
+
+.inline-form {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.inline-form input {
+  width: auto;
+}
+
+.inline-form button {
+  width: auto;
+}
+
 .actions {
   display: flex;
   gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .stack {
@@ -302,4 +343,27 @@ td {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 1rem;
+}
+
+.detail-row td {
+  padding: 0;
+  border-bottom: none;
+}
+
+.submission-detail {
+  margin: 0.75rem 0;
+  padding: 1rem;
+  background: #faf5ff;
+  border: 1px solid #ead7f7;
+  border-radius: 10px;
+}
+
+.detail-table {
+  min-width: 880px;
+  margin-top: 0;
+}
+
+.detail-average-row {
+  background: #f3e8ff;
+  font-weight: 600;
 }

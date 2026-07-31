@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -8,6 +8,20 @@ const statusLabel = {
   approved: "Approved",
   rejected: "Rejected",
 };
+
+const meterFields = [
+  { key: "orange_fruit", label: "Orange fruit" },
+  { key: "white_pink_fruit", label: "White/pink fruit" },
+  { key: "white_fruit", label: "White fruit" },
+  { key: "big_green_fruit", label: "Big green fruit" },
+  { key: "small_green_fruit", label: "Small green fruit" },
+  { key: "opened_flowers", label: "Opened flowers" },
+  { key: "buds", label: "Buds" },
+];
+
+function formatAverage(value) {
+  return Number(value ?? 0).toFixed(2);
+}
 
 export default function AdminDashboard() {
   const [submissions, setSubmissions] = useState([]);
@@ -19,6 +33,10 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [userMsg, setUserMsg] = useState("");
   const [fieldMsg, setFieldMsg] = useState("");
+  const [resetUserId, setResetUserId] = useState(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetMsg, setResetMsg] = useState("");
+  const [expandedSubmissions, setExpandedSubmissions] = useState(() => new Set());
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -79,6 +97,7 @@ export default function AdminDashboard() {
   async function handleCreateUser(e) {
     e.preventDefault();
     setUserMsg("");
+    setError("");
     try {
       await api.post("/admin/users", { ...newUser, role: "employee" });
       setUserMsg(`Employee "${newUser.username}" created successfully.`);
@@ -92,6 +111,7 @@ export default function AdminDashboard() {
   async function handleCreateField(e) {
     e.preventDefault();
     setFieldMsg("");
+    setError("");
     try {
       await api.post("/admin/fields", {
         name: newField.name,
@@ -110,6 +130,71 @@ export default function AdminDashboard() {
     navigate("/login");
   }
 
+  function startReset(userId) {
+    setResetUserId(userId);
+    setResetPassword("");
+    setResetMsg("");
+  }
+
+  function cancelReset() {
+    setResetUserId(null);
+    setResetPassword("");
+  }
+
+  async function handleResetPassword(e, userId) {
+    e.preventDefault();
+    setResetMsg("");
+    setError("");
+    try {
+      await api.patch(`/admin/users/${userId}/password`, { password: resetPassword });
+      setResetMsg("Password reset successfully.");
+      setResetUserId(null);
+      setResetPassword("");
+    } catch (err) {
+      setResetMsg(err.response?.data?.detail || "Error resetting password");
+    }
+  }
+
+  async function handleDeleteUser(user) {
+    if (!window.confirm(`Delete employee ${user.username} and all their submissions? This cannot be undone.`)) {
+      return;
+    }
+
+    setError("");
+    setUserMsg("");
+    try {
+      await api.delete(`/admin/users/${user.id}`);
+      setUserMsg(`Employee "${user.username}" deleted successfully.`);
+      setExpandedSubmissions((current) => {
+        const next = new Set(current);
+        for (const submission of submissions) {
+          if (submission.employee.id === user.id) {
+            next.delete(submission.id);
+          }
+        }
+        return next;
+      });
+      if (resetUserId === user.id) {
+        cancelReset();
+      }
+      await Promise.all([loadUsers(), loadSubmissions(filter)]);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Error deleting employee");
+    }
+  }
+
+  function toggleSubmissionDetails(submissionId) {
+    setExpandedSubmissions((current) => {
+      const next = new Set(current);
+      if (next.has(submissionId)) {
+        next.delete(submissionId);
+      } else {
+        next.add(submissionId);
+      }
+      return next;
+    });
+  }
+
   return (
     <div className="page">
       <header className="topbar">
@@ -121,6 +206,7 @@ export default function AdminDashboard() {
       </header>
 
       <main className="content">
+        {error && <p className="error">{error}</p>}
         <div className="card">
           <h2>Create new employee</h2>
           <form onSubmit={handleCreateUser} className="form-grid">
@@ -200,10 +286,40 @@ export default function AdminDashboard() {
 
         <div className="card">
           <h2>Employees ({users.length})</h2>
+          {resetMsg && <p className="info">{resetMsg}</p>}
           <ul className="user-list">
             {users.map((user) => (
               <li key={user.id}>
-                <strong>{user.username}</strong> {user.full_name ? `(${user.full_name})` : ""} — {user.role}
+                <div>
+                  <strong>{user.username}</strong> {user.full_name ? `(${user.full_name})` : ""} — {user.role}
+                </div>
+                {resetUserId === user.id ? (
+                  <form onSubmit={(e) => handleResetPassword(e, user.id)} className="inline-form">
+                    <input
+                      type="password"
+                      placeholder="New password"
+                      value={resetPassword}
+                      onChange={(e) => setResetPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                    <button type="submit">Save</button>
+                    <button type="button" className="secondary" onClick={cancelReset}>
+                      Cancel
+                    </button>
+                  </form>
+                ) : (
+                  <div className="actions">
+                    <button className="secondary" onClick={() => startReset(user.id)}>
+                      Reset password
+                    </button>
+                    {user.role !== "admin" && (
+                      <button className="danger" onClick={() => handleDeleteUser(user)}>
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -227,7 +343,6 @@ export default function AdminDashboard() {
               </button>
             </div>
           </div>
-          {error && <p className="error">{error}</p>}
           <div className="table-scroll">
             <table>
               <thead>
@@ -242,33 +357,85 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {submissions.map((submission) => (
-                  <tr key={submission.id}>
-                    <td>{submission.employee.full_name || submission.employee.username}</td>
-                    <td>{submission.field.name}</td>
-                    <td>{submission.date}</td>
-                    <td>{submission.meters.length}</td>
-                    <td>
-                      <span className={`badge badge-${submission.status}`}>{statusLabel[submission.status]}</span>
-                    </td>
-                    <td>{new Date(submission.created_at).toLocaleString()}</td>
-                    <td className="actions">
-                      <button
-                        disabled={submission.status === "approved"}
-                        onClick={() => review(submission.id, "approved")}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        className="danger"
-                        disabled={submission.status === "rejected"}
-                        onClick={() => review(submission.id, "rejected")}
-                      >
-                        Reject
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {submissions.map((submission) => {
+                  const isExpanded = expandedSubmissions.has(submission.id);
+
+                  return (
+                    <Fragment key={submission.id}>
+                      <tr>
+                        <td>{submission.employee.full_name || submission.employee.username}</td>
+                        <td>{submission.field.name}</td>
+                        <td>{submission.date}</td>
+                        <td>{submission.meters.length}</td>
+                        <td>
+                          <span className={`badge badge-${submission.status}`}>{statusLabel[submission.status]}</span>
+                        </td>
+                        <td>{new Date(submission.created_at).toLocaleString()}</td>
+                        <td className="actions">
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => toggleSubmissionDetails(submission.id)}
+                          >
+                            {isExpanded ? "▾ Details" : "▸ Details"}
+                          </button>
+                          <button
+                            disabled={submission.status === "approved"}
+                            onClick={() => review(submission.id, "approved")}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className="danger"
+                            disabled={submission.status === "rejected"}
+                            onClick={() => review(submission.id, "rejected")}
+                          >
+                            Reject
+                          </button>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr className="detail-row">
+                          <td colSpan={7}>
+                            <div className="submission-detail">
+                              <div className="table-scroll">
+                                <table className="detail-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Meter</th>
+                                      {meterFields.map((field) => (
+                                        <th key={field.key}>{field.label}</th>
+                                      ))}
+                                      <th>Overall Avg</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {submission.meters.map((meter) => (
+                                      <tr key={meter.id}>
+                                        <td>{meter.meter_number}</td>
+                                        {meterFields.map((field) => (
+                                          <td key={field.key}>{meter[field.key]}</td>
+                                        ))}
+                                        <td>-</td>
+                                      </tr>
+                                    ))}
+                                    <tr className="detail-average-row">
+                                      <td>Average</td>
+                                      {meterFields.map((field) => (
+                                        <td key={field.key}>{formatAverage(submission.averages[field.key])}</td>
+                                      ))}
+                                      <td>{formatAverage(submission.overall_average)}</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
                 {submissions.length === 0 && (
                   <tr>
                     <td colSpan={7} className="empty">No submissions</td>

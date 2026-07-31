@@ -21,8 +21,13 @@ body {
   background: linear-gradient(135deg, #6a1b9a, #ab47bc);
 }
 
+.auth-page {
+  padding: 1rem;
+}
+
 .auth-card {
-  width: 340px;
+  width: 100%;
+  max-width: 340px;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
@@ -33,6 +38,7 @@ body {
   border-radius: 12px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
   padding: 1.5rem;
+  width: 100%;
 }
 
 .subtitle {
@@ -100,6 +106,8 @@ button.danger {
   color: white;
   padding: 1rem 1.5rem;
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
   justify-content: space-between;
   align-items: center;
 }
@@ -113,6 +121,7 @@ button.danger {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .content {
@@ -129,6 +138,57 @@ button.danger {
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 1rem;
   align-items: end;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll table {
+  min-width: 560px;
+}
+
+@media (max-width: 640px) {
+  .content {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .card {
+    padding: 1rem;
+    border-radius: 10px;
+  }
+
+  .topbar {
+    padding: 0.8rem 1rem;
+  }
+
+  .topbar h1 {
+    font-size: 1.05rem;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+
+  button {
+    width: 100%;
+  }
+
+  .topbar-right button {
+    width: auto;
+  }
 }
 
 .preview {

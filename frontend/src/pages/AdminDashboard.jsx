@@ -131,52 +131,54 @@ export default function AdminDashboard() {
             </select>
           </div>
           {error && <p className="error">{error}</p>}
-          <table>
-            <thead>
-              <tr>
-                <th>Angajat</th>
-                <th>Var1</th>
-                <th>Var2</th>
-                <th>Var3</th>
-                <th>Medie</th>
-                <th>Status</th>
-                <th>Data</th>
-                <th>Acțiuni</th>
-              </tr>
-            </thead>
-            <tbody>
-              {submissions.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.employee.full_name || s.employee.username}</td>
-                  <td>{s.var1}</td>
-                  <td>{s.var2}</td>
-                  <td>{s.var3}</td>
-                  <td>{s.average_berry_weight.toFixed(2)}</td>
-                  <td>
-                    <span className={`badge badge-${s.status}`}>{statusLabel[s.status]}</span>
-                  </td>
-                  <td>{new Date(s.created_at).toLocaleString()}</td>
-                  <td className="actions">
-                    <button disabled={s.status === "approved"} onClick={() => review(s.id, "approved")}>
-                      Aprobă
-                    </button>
-                    <button
-                      className="danger"
-                      disabled={s.status === "rejected"}
-                      onClick={() => review(s.id, "rejected")}
-                    >
-                      Respinge
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {submissions.length === 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={8} className="empty">Nicio trimitere</td>
+                  <th>Angajat</th>
+                  <th>Var1</th>
+                  <th>Var2</th>
+                  <th>Var3</th>
+                  <th>Medie</th>
+                  <th>Status</th>
+                  <th>Data</th>
+                  <th>Acțiuni</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {submissions.map((s) => (
+                  <tr key={s.id}>
+                    <td>{s.employee.full_name || s.employee.username}</td>
+                    <td>{s.var1}</td>
+                    <td>{s.var2}</td>
+                    <td>{s.var3}</td>
+                    <td>{s.average_berry_weight.toFixed(2)}</td>
+                    <td>
+                      <span className={`badge badge-${s.status}`}>{statusLabel[s.status]}</span>
+                    </td>
+                    <td>{new Date(s.created_at).toLocaleString()}</td>
+                    <td className="actions">
+                      <button disabled={s.status === "approved"} onClick={() => review(s.id, "approved")}>
+                        Aprobă
+                      </button>
+                      <button
+                        className="danger"
+                        disabled={s.status === "rejected"}
+                        onClick={() => review(s.id, "rejected")}
+                      >
+                        Respinge
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {submissions.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="empty">Nicio trimitere</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>

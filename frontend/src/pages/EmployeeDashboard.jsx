@@ -98,37 +98,39 @@ export default function EmployeeDashboard() {
 
         <div className="card">
           <h2>Trimiterile mele</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Var1</th>
-                <th>Var2</th>
-                <th>Var3</th>
-                <th>Medie</th>
-                <th>Status</th>
-                <th>Data</th>
-              </tr>
-            </thead>
-            <tbody>
-              {submissions.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.var1}</td>
-                  <td>{s.var2}</td>
-                  <td>{s.var3}</td>
-                  <td>{s.average_berry_weight.toFixed(2)}</td>
-                  <td>
-                    <span className={`badge badge-${s.status}`}>{statusLabel[s.status]}</span>
-                  </td>
-                  <td>{new Date(s.created_at).toLocaleString()}</td>
-                </tr>
-              ))}
-              {submissions.length === 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={6} className="empty">Nicio trimitere încă</td>
+                  <th>Var1</th>
+                  <th>Var2</th>
+                  <th>Var3</th>
+                  <th>Medie</th>
+                  <th>Status</th>
+                  <th>Data</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {submissions.map((s) => (
+                  <tr key={s.id}>
+                    <td>{s.var1}</td>
+                    <td>{s.var2}</td>
+                    <td>{s.var3}</td>
+                    <td>{s.average_berry_weight.toFixed(2)}</td>
+                    <td>
+                      <span className={`badge badge-${s.status}`}>{statusLabel[s.status]}</span>
+                    </td>
+                    <td>{new Date(s.created_at).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {submissions.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="empty">Nicio trimitere încă</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>

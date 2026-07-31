@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date as dt_date, datetime, time as dt_time
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .models import UserRole, SubmissionStatus
 
@@ -25,8 +25,7 @@ class UserOut(BaseModel):
     role: UserRole
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserCreate(BaseModel):
@@ -36,26 +35,64 @@ class UserCreate(BaseModel):
     role: UserRole = UserRole.employee
 
 
+class FieldCreate(BaseModel):
+    name: str = Field(min_length=1)
+    total_meters: int = Field(gt=0)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Name must not be empty")
+        return stripped
+
+
+class FieldOut(BaseModel):
+    id: int
+    name: str
+    total_meters: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MeterReadingCreate(BaseModel):
+    meter_number: int = Field(ge=1)
+    orange_fruit: int = Field(ge=0)
+    white_pink_fruit: int = Field(ge=0)
+    white_fruit: int = Field(ge=0)
+    big_green_fruit: int = Field(ge=0)
+    small_green_fruit: int = Field(ge=0)
+    opened_flowers: int = Field(ge=0)
+    buds: int = Field(ge=0)
+
+
+class MeterReadingOut(MeterReadingCreate):
+    id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SubmissionCreate(BaseModel):
-    var1: float
-    var2: float
-    var3: float
+    field_id: int
+    date: dt_date
+    time: Optional[dt_time] = None
+    meters: list[MeterReadingCreate] = Field(min_length=1)
 
 
 class SubmissionOut(BaseModel):
     id: int
-    var1: float
-    var2: float
-    var3: float
-    average_berry_weight: float
+    field: FieldOut
+    date: dt_date
+    time: Optional[dt_time] = None
     status: SubmissionStatus
     created_at: datetime
     reviewed_at: Optional[datetime] = None
     employee: UserOut
     reviewed_by: Optional[UserOut] = None
+    meters: list[MeterReadingOut]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SubmissionReview(BaseModel):

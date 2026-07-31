@@ -13,9 +13,12 @@ export default function AdminDashboard() {
   const [submissions, setSubmissions] = useState([]);
   const [filter, setFilter] = useState("");
   const [users, setUsers] = useState([]);
+  const [fields, setFields] = useState([]);
   const [newUser, setNewUser] = useState({ username: "", password: "", full_name: "" });
+  const [newField, setNewField] = useState({ name: "", total_meters: "" });
   const [error, setError] = useState("");
   const [userMsg, setUserMsg] = useState("");
+  const [fieldMsg, setFieldMsg] = useState("");
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -29,12 +32,17 @@ export default function AdminDashboard() {
     setUsers(data);
   }
 
+  async function loadFields() {
+    const { data } = await api.get("/fields");
+    setFields(data);
+  }
+
   useEffect(() => {
-    loadSubmissions(filter);
+    loadSubmissions(filter).catch(() => setError("Error loading submissions"));
   }, [filter]);
 
   useEffect(() => {
-    loadUsers();
+    Promise.all([loadUsers(), loadFields()]).catch(() => setError("Error loading dashboard"));
   }, []);
 
   async function review(id, status) {
@@ -58,12 +66,12 @@ export default function AdminDashboard() {
       const url = window.URL.createObjectURL(new Blob([data]));
       const link = document.createElement("a");
       link.href = url;
-      link.download = `berry_weight_report.${extension}`;
+      link.download = `daily_tl_counts_report.${extension}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch {
       setError("Error generating report");
     }
   }
@@ -81,6 +89,22 @@ export default function AdminDashboard() {
     }
   }
 
+  async function handleCreateField(e) {
+    e.preventDefault();
+    setFieldMsg("");
+    try {
+      await api.post("/admin/fields", {
+        name: newField.name,
+        total_meters: Number(newField.total_meters),
+      });
+      setFieldMsg(`Field "${newField.name}" created successfully.`);
+      setNewField({ name: "", total_meters: "" });
+      await loadFields();
+    } catch (err) {
+      setFieldMsg(err.response?.data?.detail || "Error creating field");
+    }
+  }
+
   function handleLogout() {
     logout();
     navigate("/login");
@@ -89,7 +113,7 @@ export default function AdminDashboard() {
   return (
     <div className="page">
       <header className="topbar">
-        <h1>Berry Weight App — Admin</h1>
+        <h1>Daily TL Counts — Admin</h1>
         <div className="topbar-right">
           <span>Hi, {auth.username}</span>
           <button className="secondary" onClick={handleLogout}>Log out</button>
@@ -131,11 +155,55 @@ export default function AdminDashboard() {
         </div>
 
         <div className="card">
+          <h2>Fields ({fields.length})</h2>
+          <form onSubmit={handleCreateField} className="form-grid">
+            <label>
+              Name
+              <input
+                value={newField.name}
+                onChange={(e) => setNewField({ ...newField, name: e.target.value })}
+                required
+              />
+            </label>
+            <label>
+              Total meters
+              <input
+                type="number"
+                min="1"
+                value={newField.total_meters}
+                onChange={(e) => setNewField({ ...newField, total_meters: e.target.value })}
+                required
+              />
+            </label>
+            {fieldMsg && <p className="info">{fieldMsg}</p>}
+            <button type="submit">Add field</button>
+          </form>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Total meters</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fields.map((field) => (
+                  <tr key={field.id}>
+                    <td>{field.name}</td>
+                    <td>{field.total_meters}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="card">
           <h2>Employees ({users.length})</h2>
           <ul className="user-list">
-            {users.map((u) => (
-              <li key={u.id}>
-                <strong>{u.username}</strong> {u.full_name ? `(${u.full_name})` : ""} — {u.role}
+            {users.map((user) => (
+              <li key={user.id}>
+                <strong>{user.username}</strong> {user.full_name ? `(${user.full_name})` : ""} — {user.role}
               </li>
             ))}
           </ul>
@@ -164,36 +232,37 @@ export default function AdminDashboard() {
             <table>
               <thead>
                 <tr>
-                  <th>Employee</th>
-                  <th>Var1</th>
-                  <th>Var2</th>
-                  <th>Var3</th>
-                  <th>Average</th>
-                  <th>Status</th>
+                  <th>Team Leader</th>
+                  <th>Field</th>
                   <th>Date</th>
+                  <th># of meters</th>
+                  <th>Status</th>
+                  <th>Submitted At</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {submissions.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.employee.full_name || s.employee.username}</td>
-                    <td>{s.var1}</td>
-                    <td>{s.var2}</td>
-                    <td>{s.var3}</td>
-                    <td>{s.average_berry_weight.toFixed(2)}</td>
+                {submissions.map((submission) => (
+                  <tr key={submission.id}>
+                    <td>{submission.employee.full_name || submission.employee.username}</td>
+                    <td>{submission.field.name}</td>
+                    <td>{submission.date}</td>
+                    <td>{submission.meters.length}</td>
                     <td>
-                      <span className={`badge badge-${s.status}`}>{statusLabel[s.status]}</span>
+                      <span className={`badge badge-${submission.status}`}>{statusLabel[submission.status]}</span>
                     </td>
-                    <td>{new Date(s.created_at).toLocaleString()}</td>
+                    <td>{new Date(submission.created_at).toLocaleString()}</td>
                     <td className="actions">
-                      <button disabled={s.status === "approved"} onClick={() => review(s.id, "approved")}>
+                      <button
+                        disabled={submission.status === "approved"}
+                        onClick={() => review(submission.id, "approved")}
+                      >
                         Approve
                       </button>
                       <button
                         className="danger"
-                        disabled={s.status === "rejected"}
-                        onClick={() => review(s.id, "rejected")}
+                        disabled={submission.status === "rejected"}
+                        onClick={() => review(submission.id, "rejected")}
                       >
                         Reject
                       </button>
@@ -202,7 +271,7 @@ export default function AdminDashboard() {
                 ))}
                 {submissions.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="empty">No submissions</td>
+                    <td colSpan={7} className="empty">No submissions</td>
                   </tr>
                 )}
               </tbody>

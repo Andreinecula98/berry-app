@@ -1,8 +1,8 @@
-# Berry Weight App
+# Berry App
 
 An application with 2 types of users:
-- **Employee**: logs in and enters `var1`, `var2`, `var3`; the app automatically calculates the **average berry weight** (the average of the 3) and submits the entry for approval.
-- **Admin**: logs in with their own credentials, sees all entries submitted by employees (values + average + who + when), can **Approve** or **Reject** them, and can create new employee accounts.
+- **Employee / Team Leader**: logs in and submits daily TL fruit counts for a selected field, using one or more meter samples with fruit/flower/bud totals.
+- **Admin**: logs in with their own credentials, manages fields and employee accounts, reviews submitted TL counts, and exports the approved/pending/rejected data to Excel or PDF.
 
 ## Structure
 ```
@@ -28,6 +28,8 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 By default it uses local SQLite (`local.db`). API available at `http://localhost:8000` (interactive docs at `/docs`).
+
+> If you previously ran the old berry-weight schema locally, delete or rename `backend/local.db` before starting the updated dev server so SQLAlchemy can create the new tables cleanly.
 
 ### Frontend
 ```bash
@@ -94,7 +96,7 @@ Create a repo (it can contain both the `backend/` and `frontend/` folders) and p
 4. Go back to Render and update `CORS_ORIGINS` with this exact URL, then redeploy the backend.
 
 ### 4. Testing
-Open the Vercel URL → log in with `admin` / the password you set → create an employee → log out → log in with the new employee → enter var1/var2/var3 → log back in as admin → approve/reject the entry.
+Open the Vercel URL → log in with `admin` / the password you set → create an employee and any needed fields → log out → log in with the new employee → submit TL counts for one or more meters → log back in as admin → approve/reject the entry and export reports.
 
 ---
 
@@ -102,13 +104,15 @@ Open the Vercel URL → log in with `admin` / the password you set → create an
 | Method | Route | Who | Description |
 |---|---|---|---|
 | POST | /auth/login | anyone | authenticate, returns a JWT |
-| POST | /submissions | employee | submit var1/var2/var3, calculates the average |
+| GET | /fields | authenticated user | list available fields for TL count submissions |
+| POST | /submissions | employee | submit a daily TL count for a field, with date/time and one or more meter readings |
 | GET | /submissions/me | employee | list own submissions |
 | POST | /admin/users | admin | create a new employee account |
 | GET | /admin/users | admin | list users |
+| POST | /admin/fields | admin | create a new field with total meters |
 | GET | /admin/submissions | admin | all submissions (filterable by status) |
-| GET | /admin/submissions/export/excel | admin | download an Excel report (.xlsx), filterable by status |
-| GET | /admin/submissions/export/pdf | admin | download a PDF report, filterable by status |
+| GET | /admin/submissions/export/excel | admin | download an Excel report (.xlsx), flattened to one row per meter reading |
+| GET | /admin/submissions/export/pdf | admin | download a PDF report, flattened to one row per meter reading |
 | PATCH | /admin/submissions/{id} | admin | approve/reject a submission |
 
 ## Security

@@ -9,16 +9,51 @@ const statusLabel = {
   rejected: "Rejected",
 };
 
+const meterFields = [
+  { key: "orange_fruit", label: "Orange fruit" },
+  { key: "white_pink_fruit", label: "White/pink fruit" },
+  { key: "white_fruit", label: "White fruit" },
+  { key: "big_green_fruit", label: "Big green fruit" },
+  { key: "small_green_fruit", label: "Small green fruit" },
+  { key: "opened_flowers", label: "Opened flowers" },
+  { key: "buds", label: "Buds" },
+];
+
+function todayValue() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function createMeter() {
+  return {
+    orange_fruit: 0,
+    white_pink_fruit: 0,
+    white_fruit: 0,
+    big_green_fruit: 0,
+    small_green_fruit: 0,
+    opened_flowers: 0,
+    buds: 0,
+  };
+}
+
 export default function EmployeeDashboard() {
-  const [var1, setVar1] = useState("");
-  const [var2, setVar2] = useState("");
-  const [var3, setVar3] = useState("");
-  const [preview, setPreview] = useState(null);
+  const [fields, setFields] = useState([]);
+  const [fieldId, setFieldId] = useState("");
+  const [date, setDate] = useState(todayValue());
+  const [time, setTime] = useState("");
+  const [meters, setMeters] = useState([createMeter()]);
   const [submissions, setSubmissions] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
+
+  async function loadFields() {
+    const { data } = await api.get("/fields");
+    setFields(data);
+    setFieldId((current) => current || (data[0] ? String(data[0].id) : ""));
+  }
 
   async function loadSubmissions() {
     const { data } = await api.get("/submissions/me");
@@ -26,27 +61,50 @@ export default function EmployeeDashboard() {
   }
 
   useEffect(() => {
-    loadSubmissions();
+    async function loadData() {
+      try {
+        await Promise.all([loadFields(), loadSubmissions()]);
+      } catch (err) {
+        setError(err.response?.data?.detail || "Error loading dashboard");
+      }
+    }
+
+    loadData();
   }, []);
 
-  useEffect(() => {
-    const nums = [var1, var2, var3].map(Number);
-    if (var1 !== "" && var2 !== "" && var3 !== "" && nums.every((n) => !Number.isNaN(n))) {
-      setPreview((nums[0] + nums[1] + nums[2]) / 3);
-    } else {
-      setPreview(null);
-    }
-  }, [var1, var2, var3]);
+  function updateMeter(index, key, value) {
+    setMeters((current) =>
+      current.map((meter, meterIndex) =>
+        meterIndex === index ? { ...meter, [key]: Number(value) } : meter,
+      ),
+    );
+  }
+
+  function addMeter() {
+    setMeters((current) => [...current, createMeter()]);
+  }
+
+  function removeMeter(index) {
+    setMeters((current) => current.filter((_, meterIndex) => meterIndex !== index));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      await api.post("/submissions", { var1: Number(var1), var2: Number(var2), var3: Number(var3) });
-      setVar1("");
-      setVar2("");
-      setVar3("");
+      await api.post("/submissions", {
+        field_id: Number(fieldId),
+        date,
+        time: time || null,
+        meters: meters.map((meter, index) => ({
+          meter_number: index + 1,
+          ...meter,
+        })),
+      });
+      setTime("");
+      setMeters([createMeter()]);
+      setDate(todayValue());
       await loadSubmissions();
     } catch (err) {
       setError(err.response?.data?.detail || "An error occurred");
@@ -63,7 +121,7 @@ export default function EmployeeDashboard() {
   return (
     <div className="page">
       <header className="topbar">
-        <h1>Berry Weight App</h1>
+        <h1>Daily TL Counts</h1>
         <div className="topbar-right">
           <span>Hi, {auth.username}</span>
           <button className="secondary" onClick={handleLogout}>Log out</button>
@@ -71,28 +129,69 @@ export default function EmployeeDashboard() {
       </header>
 
       <main className="content">
-        <div className="card">
-          <h2>Enter values</h2>
-          <form onSubmit={handleSubmit} className="form-grid">
-            <label>
-              Var1
-              <input type="number" step="any" value={var1} onChange={(e) => setVar1(e.target.value)} required />
-            </label>
-            <label>
-              Var2
-              <input type="number" step="any" value={var2} onChange={(e) => setVar2(e.target.value)} required />
-            </label>
-            <label>
-              Var3
-              <input type="number" step="any" value={var3} onChange={(e) => setVar3(e.target.value)} required />
-            </label>
-            <div className="preview">
-              Average berry weight: <strong>{preview !== null ? preview.toFixed(2) : "-"}</strong>
+        <div className="card stack">
+          <h2>Submit daily count</h2>
+          <form onSubmit={handleSubmit} className="stack">
+            <div className="form-grid">
+              <label>
+                Field
+                <select value={fieldId} onChange={(e) => setFieldId(e.target.value)} required>
+                  {fields.map((field) => (
+                    <option key={field.id} value={field.id}>
+                      {field.name} ({field.total_meters} m)
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Date
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              </label>
+              <label>
+                Time (optional)
+                <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+              </label>
+            </div>
+
+            <div className="stack">
+              {meters.map((meter, index) => (
+                <div key={index} className="card meter-card">
+                  <div className="meter-header">
+                    <h3>Meter {index + 1}</h3>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => removeMeter(index)}
+                      disabled={meters.length === 1}
+                    >
+                      Remove meter
+                    </button>
+                  </div>
+                  <div className="meter-grid">
+                    {meterFields.map((field) => (
+                      <label key={field.key}>
+                        {field.label}
+                        <input
+                          type="number"
+                          min="0"
+                          value={meter[field.key]}
+                          onChange={(e) => updateMeter(index, field.key, e.target.value)}
+                          required
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="header-actions">
+              <button type="button" className="secondary" onClick={addMeter}>Add meter</button>
+              <button type="submit" disabled={loading || !fieldId}>
+                {loading ? "Submitting..." : "Submit for approval"}
+              </button>
             </div>
             {error && <p className="error">{error}</p>}
-            <button type="submit" disabled={loading}>
-              {loading ? "Submitting..." : "Submit for approval"}
-            </button>
           </form>
         </div>
 
@@ -102,30 +201,28 @@ export default function EmployeeDashboard() {
             <table>
               <thead>
                 <tr>
-                  <th>Var1</th>
-                  <th>Var2</th>
-                  <th>Var3</th>
-                  <th>Average</th>
-                  <th>Status</th>
+                  <th>Field</th>
                   <th>Date</th>
+                  <th># of meters</th>
+                  <th>Status</th>
+                  <th>Submitted At</th>
                 </tr>
               </thead>
               <tbody>
-                {submissions.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.var1}</td>
-                    <td>{s.var2}</td>
-                    <td>{s.var3}</td>
-                    <td>{s.average_berry_weight.toFixed(2)}</td>
+                {submissions.map((submission) => (
+                  <tr key={submission.id}>
+                    <td>{submission.field.name}</td>
+                    <td>{submission.date}</td>
+                    <td>{submission.meters.length}</td>
                     <td>
-                      <span className={`badge badge-${s.status}`}>{statusLabel[s.status]}</span>
+                      <span className={`badge badge-${submission.status}`}>{statusLabel[submission.status]}</span>
                     </td>
-                    <td>{new Date(s.created_at).toLocaleString()}</td>
+                    <td>{new Date(submission.created_at).toLocaleString()}</td>
                   </tr>
                 ))}
                 {submissions.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="empty">No submissions yet</td>
+                    <td colSpan={5} className="empty">No submissions yet</td>
                   </tr>
                 )}
               </tbody>

@@ -271,3 +271,35 @@ td {
   display: flex;
   gap: 0.4rem;
 }
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.meter-card {
+  padding: 1rem;
+  background: #faf5ff;
+  border: 1px solid #ead7f7;
+}
+
+.meter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.meter-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.meter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}

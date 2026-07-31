@@ -47,6 +47,27 @@ export default function AdminDashboard() {
     }
   }
 
+  async function downloadReport(type) {
+    setError("");
+    try {
+      const { data } = await api.get(`/admin/submissions/export/${type}`, {
+        params: filter ? { status_filter: filter } : {},
+        responseType: "blob",
+      });
+      const extension = type === "excel" ? "xlsx" : "pdf";
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `raport_berry_weight.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError("Eroare la generarea raportului");
+    }
+  }
+
   async function handleCreateUser(e) {
     e.preventDefault();
     setUserMsg("");
@@ -123,12 +144,20 @@ export default function AdminDashboard() {
         <div className="card">
           <div className="card-header">
             <h2>Toate trimiterile</h2>
-            <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-              <option value="">Toate</option>
-              <option value="pending">În așteptare</option>
-              <option value="approved">Aprobate</option>
-              <option value="rejected">Respinse</option>
-            </select>
+            <div className="header-actions">
+              <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+                <option value="">Toate</option>
+                <option value="pending">În așteptare</option>
+                <option value="approved">Aprobate</option>
+                <option value="rejected">Respinse</option>
+              </select>
+              <button className="secondary" onClick={() => downloadReport("excel")}>
+                📊 Export Excel
+              </button>
+              <button className="secondary" onClick={() => downloadReport("pdf")}>
+                📄 Export PDF
+              </button>
+            </div>
           </div>
           {error && <p className="error">{error}</p>}
           <div className="table-scroll">

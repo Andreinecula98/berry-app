@@ -6,3 +6,5 @@ python-jose[cryptography]==3.5.0
 python-multipart==0.0.20
 pydantic-settings==2.14.2
 bcrypt==5.0.0
+openpyxl==3.1.5
+reportlab==5.0.0

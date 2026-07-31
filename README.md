@@ -77,6 +77,8 @@ Deschide URL-ul de pe Vercel → login cu `admin` / parola setată → creează 
 | POST | /admin/users | admin | creează cont angajat nou |
 | GET | /admin/users | admin | listă utilizatori |
 | GET | /admin/submissions | admin | toate intrările (filtrabil după status) |
+| GET | /admin/submissions/export/excel | admin | descarcă raport Excel (.xlsx), filtrabil după status |
+| GET | /admin/submissions/export/pdf | admin | descarcă raport PDF, filtrabil după status |
 | PATCH | /admin/submissions/{id} | admin | aprobă/respinge o intrare |
 
 ## Securitate

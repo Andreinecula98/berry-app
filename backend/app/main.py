@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from . import models, schemas
@@ -15,6 +16,7 @@ from .auth import (
 from .config import INITIAL_ADMIN_USERNAME, INITIAL_ADMIN_PASSWORD, CORS_ORIGINS
 from .database import Base, engine, get_db
 from .models import User, UserRole, Submission, SubmissionStatus
+from .reports import build_excel_report, build_pdf_report
 
 Base.metadata.create_all(bind=engine)
 
@@ -140,6 +142,43 @@ def list_all_submissions(
     if status_filter:
         query = query.filter(Submission.status == status_filter)
     return query.order_by(Submission.created_at.desc()).all()
+
+
+def _get_submissions_for_export(db: Session, status_filter: SubmissionStatus | None) -> list[Submission]:
+    query = db.query(Submission)
+    if status_filter:
+        query = query.filter(Submission.status == status_filter)
+    return query.order_by(Submission.created_at.desc()).all()
+
+
+@app.get("/admin/submissions/export/excel")
+def export_submissions_excel(
+    status_filter: SubmissionStatus | None = None,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    submissions = _get_submissions_for_export(db, status_filter)
+    content = build_excel_report(submissions)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=raport_berry_weight.xlsx"},
+    )
+
+
+@app.get("/admin/submissions/export/pdf")
+def export_submissions_pdf(
+    status_filter: SubmissionStatus | None = None,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    submissions = _get_submissions_for_export(db, status_filter)
+    content = build_pdf_report(submissions)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=raport_berry_weight.pdf"},
+    )
 
 
 @app.patch("/admin/submissions/{submission_id}", response_model=schemas.SubmissionOut)

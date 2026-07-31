@@ -4,9 +4,9 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 const statusLabel = {
-  pending: "În așteptare",
-  approved: "Aprobat",
-  rejected: "Respins",
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
 };
 
 export default function AdminDashboard() {
@@ -43,7 +43,7 @@ export default function AdminDashboard() {
       await api.patch(`/admin/submissions/${id}`, { status });
       await loadSubmissions(filter);
     } catch (err) {
-      setError(err.response?.data?.detail || "Eroare la actualizare");
+      setError(err.response?.data?.detail || "Error updating submission");
     }
   }
 
@@ -58,13 +58,13 @@ export default function AdminDashboard() {
       const url = window.URL.createObjectURL(new Blob([data]));
       const link = document.createElement("a");
       link.href = url;
-      link.download = `raport_berry_weight.${extension}`;
+      link.download = `berry_weight_report.${extension}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setError("Eroare la generarea raportului");
+      setError("Error generating report");
     }
   }
 
@@ -73,11 +73,11 @@ export default function AdminDashboard() {
     setUserMsg("");
     try {
       await api.post("/admin/users", { ...newUser, role: "employee" });
-      setUserMsg(`Angajat "${newUser.username}" creat cu succes.`);
+      setUserMsg(`Employee "${newUser.username}" created successfully.`);
       setNewUser({ username: "", password: "", full_name: "" });
       await loadUsers();
     } catch (err) {
-      setUserMsg(err.response?.data?.detail || "Eroare la creare utilizator");
+      setUserMsg(err.response?.data?.detail || "Error creating user");
     }
   }
 
@@ -91,17 +91,17 @@ export default function AdminDashboard() {
       <header className="topbar">
         <h1>Berry Weight App — Admin</h1>
         <div className="topbar-right">
-          <span>Salut, {auth.username}</span>
-          <button className="secondary" onClick={handleLogout}>Delogare</button>
+          <span>Hi, {auth.username}</span>
+          <button className="secondary" onClick={handleLogout}>Log out</button>
         </div>
       </header>
 
       <main className="content">
         <div className="card">
-          <h2>Creează angajat nou</h2>
+          <h2>Create new employee</h2>
           <form onSubmit={handleCreateUser} className="form-grid">
             <label>
-              Utilizator
+              Username
               <input
                 value={newUser.username}
                 onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
@@ -109,14 +109,14 @@ export default function AdminDashboard() {
               />
             </label>
             <label>
-              Nume complet
+              Full name
               <input
                 value={newUser.full_name}
                 onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
               />
             </label>
             <label>
-              Parolă
+              Password
               <input
                 type="password"
                 value={newUser.password}
@@ -126,12 +126,12 @@ export default function AdminDashboard() {
               />
             </label>
             {userMsg && <p className="info">{userMsg}</p>}
-            <button type="submit">Creează angajat</button>
+            <button type="submit">Create employee</button>
           </form>
         </div>
 
         <div className="card">
-          <h2>Angajați ({users.length})</h2>
+          <h2>Employees ({users.length})</h2>
           <ul className="user-list">
             {users.map((u) => (
               <li key={u.id}>
@@ -143,13 +143,13 @@ export default function AdminDashboard() {
 
         <div className="card">
           <div className="card-header">
-            <h2>Toate trimiterile</h2>
+            <h2>All submissions</h2>
             <div className="header-actions">
               <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-                <option value="">Toate</option>
-                <option value="pending">În așteptare</option>
-                <option value="approved">Aprobate</option>
-                <option value="rejected">Respinse</option>
+                <option value="">All</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
               </select>
               <button className="secondary" onClick={() => downloadReport("excel")}>
                 📊 Export Excel
@@ -164,14 +164,14 @@ export default function AdminDashboard() {
             <table>
               <thead>
                 <tr>
-                  <th>Angajat</th>
+                  <th>Employee</th>
                   <th>Var1</th>
                   <th>Var2</th>
                   <th>Var3</th>
-                  <th>Medie</th>
+                  <th>Average</th>
                   <th>Status</th>
-                  <th>Data</th>
-                  <th>Acțiuni</th>
+                  <th>Date</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -188,21 +188,21 @@ export default function AdminDashboard() {
                     <td>{new Date(s.created_at).toLocaleString()}</td>
                     <td className="actions">
                       <button disabled={s.status === "approved"} onClick={() => review(s.id, "approved")}>
-                        Aprobă
+                        Approve
                       </button>
                       <button
                         className="danger"
                         disabled={s.status === "rejected"}
                         onClick={() => review(s.id, "rejected")}
                       >
-                        Respinge
+                        Reject
                       </button>
                     </td>
                   </tr>
                 ))}
                 {submissions.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="empty">Nicio trimitere</td>
+                    <td colSpan={8} className="empty">No submissions</td>
                   </tr>
                 )}
               </tbody>

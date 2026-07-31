@@ -58,7 +58,7 @@ def root():
 def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == payload.username).first()
     if not user or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Utilizator sau parolă incorectă")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
     token = create_access_token(user.username)
     return schemas.Token(access_token=token, role=user.role, username=user.username)
 
@@ -114,7 +114,7 @@ def create_user(
 ):
     existing = db.query(User).filter(User.username == payload.username).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Acest utilizator există deja")
+        raise HTTPException(status_code=400, detail="This username already exists")
     user = User(
         username=payload.username,
         full_name=payload.full_name,
@@ -162,7 +162,7 @@ def export_submissions_excel(
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=raport_berry_weight.xlsx"},
+        headers={"Content-Disposition": "attachment; filename=berry_weight_report.xlsx"},
     )
 
 
@@ -177,7 +177,7 @@ def export_submissions_pdf(
     return Response(
         content=content,
         media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=raport_berry_weight.pdf"},
+        headers={"Content-Disposition": "attachment; filename=berry_weight_report.pdf"},
     )
 
 

@@ -18,7 +18,7 @@ export default function Login() {
       const data = await login(username, password);
       navigate(data.role === "admin" ? "/admin" : "/employee");
     } catch (err) {
-      setError(err.response?.data?.detail || "Autentificare eșuată");
+      setError(err.response?.data?.detail || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -28,18 +28,18 @@ export default function Login() {
     <div className="auth-page">
       <form className="card auth-card" onSubmit={handleSubmit}>
         <h1>Berry Weight App</h1>
-        <p className="subtitle">Autentificare</p>
+        <p className="subtitle">Sign in</p>
         <label>
-          Utilizator
+          Username
           <input value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus />
         </label>
         <label>
-          Parolă
+          Password
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
         {error && <p className="error">{error}</p>}
         <button type="submit" disabled={loading}>
-          {loading ? "Se conectează..." : "Conectare"}
+          {loading ? "Signing in..." : "Sign in"}
         </button>
       </form>
     </div>

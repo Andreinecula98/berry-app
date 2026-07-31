@@ -13,13 +13,13 @@ from reportlab.lib.styles import getSampleStyleSheet
 
 from .models import Submission
 
-STATUS_LABELS_RO = {
-    "pending": "In asteptare",
-    "approved": "Aprobat",
-    "rejected": "Respins",
+STATUS_LABELS = {
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
 }
 
-HEADERS = ["Angajat", "Var1", "Var2", "Var3", "Average Berry Weight", "Status", "Data trimiterii", "Verificat de"]
+HEADERS = ["Employee", "Var1", "Var2", "Var3", "Average Berry Weight", "Status", "Submitted At", "Reviewed By"]
 
 
 def _row_for(sub: Submission) -> list:
@@ -29,7 +29,7 @@ def _row_for(sub: Submission) -> list:
         sub.var2,
         sub.var3,
         round(sub.average_berry_weight, 2),
-        STATUS_LABELS_RO.get(sub.status.value if hasattr(sub.status, "value") else sub.status, sub.status),
+        STATUS_LABELS.get(sub.status.value if hasattr(sub.status, "value") else sub.status, sub.status),
         sub.created_at.strftime("%Y-%m-%d %H:%M") if sub.created_at else "",
         (sub.reviewed_by.full_name or sub.reviewed_by.username) if sub.reviewed_by else "-",
     ]
@@ -38,7 +38,7 @@ def _row_for(sub: Submission) -> list:
 def build_excel_report(submissions: Sequence[Submission]) -> bytes:
     wb = Workbook()
     ws = wb.active
-    ws.title = "Raport Berry Weight"
+    ws.title = "Berry Weight Report"
 
     ws.append(HEADERS)
     header_fill = PatternFill(start_color="6A1B9A", end_color="6A1B9A", fill_type="solid")
@@ -70,7 +70,7 @@ def build_pdf_report(submissions: Sequence[Submission]) -> bytes:
         bottomMargin=1.2 * cm,
     )
     styles = getSampleStyleSheet()
-    elements = [Paragraph("Raport Berry Weight App", styles["Title"]), Spacer(1, 0.5 * cm)]
+    elements = [Paragraph("Berry Weight App Report", styles["Title"]), Spacer(1, 0.5 * cm)]
 
     data = [HEADERS] + [_row_for(sub) for sub in submissions]
     if len(data) == 1:

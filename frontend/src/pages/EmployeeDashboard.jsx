@@ -4,9 +4,9 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 const statusLabel = {
-  pending: "În așteptare",
-  approved: "Aprobat",
-  rejected: "Respins",
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
 };
 
 export default function EmployeeDashboard() {
@@ -49,7 +49,7 @@ export default function EmployeeDashboard() {
       setVar3("");
       await loadSubmissions();
     } catch (err) {
-      setError(err.response?.data?.detail || "A apărut o eroare");
+      setError(err.response?.data?.detail || "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -65,14 +65,14 @@ export default function EmployeeDashboard() {
       <header className="topbar">
         <h1>Berry Weight App</h1>
         <div className="topbar-right">
-          <span>Salut, {auth.username}</span>
-          <button className="secondary" onClick={handleLogout}>Delogare</button>
+          <span>Hi, {auth.username}</span>
+          <button className="secondary" onClick={handleLogout}>Log out</button>
         </div>
       </header>
 
       <main className="content">
         <div className="card">
-          <h2>Introdu valorile</h2>
+          <h2>Enter values</h2>
           <form onSubmit={handleSubmit} className="form-grid">
             <label>
               Var1
@@ -91,13 +91,13 @@ export default function EmployeeDashboard() {
             </div>
             {error && <p className="error">{error}</p>}
             <button type="submit" disabled={loading}>
-              {loading ? "Se trimite..." : "Trimite spre aprobare"}
+              {loading ? "Submitting..." : "Submit for approval"}
             </button>
           </form>
         </div>
 
         <div className="card">
-          <h2>Trimiterile mele</h2>
+          <h2>My submissions</h2>
           <div className="table-scroll">
             <table>
               <thead>
@@ -105,9 +105,9 @@ export default function EmployeeDashboard() {
                   <th>Var1</th>
                   <th>Var2</th>
                   <th>Var3</th>
-                  <th>Medie</th>
+                  <th>Average</th>
                   <th>Status</th>
-                  <th>Data</th>
+                  <th>Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -125,7 +125,7 @@ export default function EmployeeDashboard() {
                 ))}
                 {submissions.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="empty">Nicio trimitere încă</td>
+                    <td colSpan={6} className="empty">No submissions yet</td>
                   </tr>
                 )}
               </tbody>

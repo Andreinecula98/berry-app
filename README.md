@@ -111,6 +111,8 @@ Open the Vercel URL → log in with `admin` / the password you set → create an
 | GET | /admin/users | admin | list users |
 | PATCH | /admin/users/{id}/password | admin | reset an employee's (or admin's) password |
 | POST | /admin/fields | admin | create a new field with total meters |
+| PUT | /admin/fields/{id} | admin | update a field's name and total meters |
+| DELETE | /admin/fields/{id} | admin | delete a field if it has no submissions |
 | GET | /admin/submissions | admin | all submissions (filterable by status) |
 | GET | /admin/submissions/export/excel | admin | download an Excel report (.xlsx), flattened to one row per meter reading |
 | GET | /admin/submissions/export/pdf | admin | download a PDF report, flattened to one row per meter reading |

@@ -33,6 +33,8 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [userMsg, setUserMsg] = useState("");
   const [fieldMsg, setFieldMsg] = useState("");
+  const [editingFieldId, setEditingFieldId] = useState(null);
+  const [editField, setEditField] = useState({ name: "", total_meters: "" });
   const [resetUserId, setResetUserId] = useState(null);
   const [resetPassword, setResetPassword] = useState("");
   const [resetMsg, setResetMsg] = useState("");
@@ -122,6 +124,53 @@ export default function AdminDashboard() {
       await loadFields();
     } catch (err) {
       setFieldMsg(err.response?.data?.detail || "Error creating field");
+    }
+  }
+
+  function startFieldEdit(field) {
+    setEditingFieldId(field.id);
+    setEditField({ name: field.name, total_meters: String(field.total_meters) });
+    setFieldMsg("");
+  }
+
+  function cancelFieldEdit() {
+    setEditingFieldId(null);
+    setEditField({ name: "", total_meters: "" });
+  }
+
+  async function handleUpdateField(e, fieldId) {
+    e.preventDefault();
+    setFieldMsg("");
+    setError("");
+    try {
+      await api.put(`/admin/fields/${fieldId}`, {
+        name: editField.name,
+        total_meters: Number(editField.total_meters),
+      });
+      setFieldMsg(`Field "${editField.name}" updated successfully.`);
+      cancelFieldEdit();
+      await loadFields();
+    } catch (err) {
+      setFieldMsg(err.response?.data?.detail || "Error updating field");
+    }
+  }
+
+  async function handleDeleteField(field) {
+    if (!window.confirm(`Delete field ${field.name}? This is only possible if it has no submissions yet.`)) {
+      return;
+    }
+
+    setFieldMsg("");
+    setError("");
+    try {
+      await api.delete(`/admin/fields/${field.id}`);
+      setFieldMsg(`Field "${field.name}" deleted successfully.`);
+      if (editingFieldId === field.id) {
+        cancelFieldEdit();
+      }
+      await loadFields();
+    } catch (err) {
+      setFieldMsg(err.response?.data?.detail || "Error deleting field");
     }
   }
 
@@ -270,14 +319,49 @@ export default function AdminDashboard() {
                 <tr>
                   <th>Name</th>
                   <th>Total meters</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {fields.map((field) => (
-                  <tr key={field.id}>
-                    <td>{field.name}</td>
-                    <td>{field.total_meters}</td>
-                  </tr>
+                  <Fragment key={field.id}>
+                    <tr>
+                      <td>{field.name}</td>
+                      <td>{field.total_meters}</td>
+                      <td className="actions">
+                        <button type="button" className="secondary" onClick={() => startFieldEdit(field)}>
+                          Edit
+                        </button>
+                        <button type="button" className="danger" onClick={() => handleDeleteField(field)}>
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                    {editingFieldId === field.id && (
+                      <tr>
+                        <td colSpan={3}>
+                          <form onSubmit={(e) => handleUpdateField(e, field.id)} className="inline-form">
+                            <input
+                              value={editField.name}
+                              onChange={(e) => setEditField({ ...editField, name: e.target.value })}
+                              required
+                            />
+                            <input
+                              type="number"
+                              min="1"
+                              value={editField.total_meters}
+                              onChange={(e) => setEditField({ ...editField, total_meters: e.target.value })}
+                              required
+                            />
+                            <button type="submit">Save</button>
+                            <button type="button" className="secondary" onClick={cancelFieldEdit}>
+                              Cancel
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

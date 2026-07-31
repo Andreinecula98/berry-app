@@ -52,6 +52,10 @@ class FieldCreate(BaseModel):
         return stripped
 
 
+class FieldUpdate(FieldCreate):
+    pass
+
+
 class FieldOut(BaseModel):
     id: int
     name: str

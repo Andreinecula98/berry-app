@@ -1,0 +1,40 @@
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- IDEs / editors ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+*.swp
+
+# --- Python (backend) ---
+backend/venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+backend/local.db
+*.db
+
+# --- Node / frontend ---
+frontend/node_modules/
+node_modules/
+frontend/dist/
+dist/
+dist-ssr/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Env files ---
+.env
+.env.local
+.env.production.local
+
+# --- Excel lock files (created by Excel/Office when a file is open) ---
+~$*.xlsx

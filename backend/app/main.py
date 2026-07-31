@@ -294,6 +294,47 @@ def create_field(
     return field
 
 
+@app.put("/admin/fields/{field_id}", response_model=schemas.FieldOut)
+def update_field(
+    field_id: int,
+    payload: schemas.FieldUpdate,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    field = db.query(Field).filter(Field.id == field_id).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="Field not found")
+
+    existing = db.query(Field).filter(Field.name == payload.name, Field.id != field_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="This field name already exists")
+
+    field.name = payload.name
+    field.total_meters = payload.total_meters
+    db.commit()
+    db.refresh(field)
+    return field
+
+
+@app.delete("/admin/fields/{field_id}", status_code=204)
+def delete_field(
+    field_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    field = db.query(Field).filter(Field.id == field_id).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="Field not found")
+
+    existing_submission = db.query(Submission).filter(Submission.field_id == field_id).first()
+    if existing_submission:
+        raise HTTPException(status_code=400, detail="Cannot delete a field that has existing submissions")
+
+    db.delete(field)
+    db.commit()
+    return Response(status_code=204)
+
+
 @app.get("/admin/submissions", response_model=list[schemas.SubmissionOut])
 def list_all_submissions(
     status_filter: SubmissionStatus | None = None,

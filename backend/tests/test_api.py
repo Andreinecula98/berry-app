@@ -4,6 +4,7 @@ from openpyxl import load_workbook
 
 
 FIELD_PAYLOAD = {"name": "TL TEST FIELD", "total_meters": 120}
+FIELD_UPDATE_PAYLOAD = {"name": "TL TEST FIELD UPDATED", "total_meters": 150}
 METER_PAYLOAD = [
     {
         "meter_number": 1,
@@ -80,6 +81,163 @@ def test_duplicate_employee_rejected(client, admin_token):
     )
     assert resp.status_code == 400
 
+
+def test_admin_can_update_field(client, admin_token):
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    create_resp = client.post(
+        "/admin/fields",
+        json={"name": "FIELD UPDATE ORIGINAL", "total_meters": 100},
+        headers=admin_headers,
+    )
+    assert create_resp.status_code == 201
+    field_id = create_resp.json()["id"]
+
+    other_resp = client.post(
+        "/admin/fields",
+        json={"name": "FIELD UPDATE CONFLICT", "total_meters": 200},
+        headers=admin_headers,
+    )
+    assert other_resp.status_code == 201
+
+    update_resp = client.put(f"/admin/fields/{field_id}", json=FIELD_UPDATE_PAYLOAD, headers=admin_headers)
+    assert update_resp.status_code == 200
+    assert update_resp.json()["name"] == FIELD_UPDATE_PAYLOAD["name"]
+    assert update_resp.json()["total_meters"] == FIELD_UPDATE_PAYLOAD["total_meters"]
+
+    fields_resp = client.get("/fields", headers=admin_headers)
+    assert fields_resp.status_code == 200
+    updated_field = next(field for field in fields_resp.json() if field["id"] == field_id)
+    assert updated_field["name"] == FIELD_UPDATE_PAYLOAD["name"]
+    assert updated_field["total_meters"] == FIELD_UPDATE_PAYLOAD["total_meters"]
+
+    conflict_resp = client.put(
+        f"/admin/fields/{field_id}",
+        json={"name": "FIELD UPDATE CONFLICT", "total_meters": 175},
+        headers=admin_headers,
+    )
+    assert conflict_resp.status_code == 400
+    assert conflict_resp.json()["detail"] == "This field name already exists"
+
+    missing_resp = client.put(
+        "/admin/fields/999999",
+        json={"name": "MISSING FIELD", "total_meters": 99},
+        headers=admin_headers,
+    )
+    assert missing_resp.status_code == 404
+    assert missing_resp.json()["detail"] == "Field not found"
+
+
+def test_admin_can_delete_unused_field(client, admin_token):
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    create_resp = client.post(
+        "/admin/fields",
+        json={"name": "FIELD DELETE UNUSED", "total_meters": 90},
+        headers=admin_headers,
+    )
+    assert create_resp.status_code == 201
+    field_id = create_resp.json()["id"]
+
+    delete_resp = client.delete(f"/admin/fields/{field_id}", headers=admin_headers)
+    assert delete_resp.status_code == 204
+
+    fields_resp = client.get("/fields", headers=admin_headers)
+    assert fields_resp.status_code == 200
+    assert all(field["id"] != field_id for field in fields_resp.json())
+
+    missing_resp = client.delete("/admin/fields/999999", headers=admin_headers)
+    assert missing_resp.status_code == 404
+    assert missing_resp.json()["detail"] == "Field not found"
+
+
+def test_admin_cannot_delete_field_with_submissions(client, admin_token):
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    field_resp = client.post(
+        "/admin/fields",
+        json={"name": "FIELD WITH SUBMISSIONS", "total_meters": 140},
+        headers=admin_headers,
+    )
+    assert field_resp.status_code == 201
+    field_id = field_resp.json()["id"]
+
+    employee_resp = client.post(
+        "/admin/users",
+        json={"username": "field_submitter", "password": "parola123", "role": "employee"},
+        headers=admin_headers,
+    )
+    assert employee_resp.status_code == 201
+
+    login_resp = client.post("/auth/login", json={"username": "field_submitter", "password": "parola123"})
+    assert login_resp.status_code == 200
+    emp_headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
+
+    submit_resp = client.post(
+        "/submissions",
+        json={
+            "field_id": field_id,
+            "date": "2026-08-02",
+            "meters": [METER_PAYLOAD[0]],
+        },
+        headers=emp_headers,
+    )
+    assert submit_resp.status_code == 201
+
+    delete_resp = client.delete(f"/admin/fields/{field_id}", headers=admin_headers)
+    assert delete_resp.status_code == 400
+    assert delete_resp.json()["detail"] == "Cannot delete a field that has existing submissions"
+
+
+def test_field_admin_endpoints_require_admin(client, admin_token):
+    create_no_auth = client.post("/admin/fields", json={"name": "FIELD NO AUTH", "total_meters": 75})
+    assert create_no_auth.status_code == 401
+
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    field_resp = client.post(
+        "/admin/fields",
+        json={"name": "FIELD AUTH TARGET", "total_meters": 88},
+        headers=admin_headers,
+    )
+    assert field_resp.status_code == 201
+    field_id = field_resp.json()["id"]
+
+    employee_resp = client.post(
+        "/admin/users",
+        json={"username": "field_non_admin", "password": "parola123", "role": "employee"},
+        headers=admin_headers,
+    )
+    assert employee_resp.status_code == 201
+
+    login_resp = client.post("/auth/login", json={"username": "field_non_admin", "password": "parola123"})
+    assert login_resp.status_code == 200
+    emp_headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
+
+    create_forbidden = client.post(
+        "/admin/fields",
+        json={"name": "FIELD FORBIDDEN CREATE", "total_meters": 95},
+        headers=emp_headers,
+    )
+    assert create_forbidden.status_code == 403
+
+    update_no_auth = client.put(
+        f"/admin/fields/{field_id}",
+        json={"name": "FIELD NO AUTH UPDATE", "total_meters": 91},
+    )
+    assert update_no_auth.status_code == 401
+
+    update_forbidden = client.put(
+        f"/admin/fields/{field_id}",
+        json={"name": "FIELD FORBIDDEN UPDATE", "total_meters": 91},
+        headers=emp_headers,
+    )
+    assert update_forbidden.status_code == 403
+
+    delete_no_auth = client.delete(f"/admin/fields/{field_id}")
+    assert delete_no_auth.status_code == 401
+
+    delete_forbidden = client.delete(f"/admin/fields/{field_id}", headers=emp_headers)
+    assert delete_forbidden.status_code == 403
 
 
 def test_employee_login_and_submission_flow(client, admin_token):

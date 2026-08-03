@@ -218,6 +218,61 @@ def list_my_submissions(
     )
 
 
+def _get_own_pending_submission(db: Session, submission_id: int, current_user: User) -> Submission:
+    submission = db.query(Submission).filter(Submission.id == submission_id).first()
+    if not submission or submission.employee_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if submission.status != SubmissionStatus.pending:
+        raise HTTPException(status_code=400, detail="Only pending submissions can be edited or cancelled")
+    return submission
+
+
+@app.put("/submissions/{submission_id}", response_model=schemas.SubmissionOut)
+def update_submission(
+    submission_id: int,
+    payload: schemas.SubmissionCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    submission = _get_own_pending_submission(db, submission_id, current_user)
+
+    field = db.query(Field).filter(Field.id == payload.field_id).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="Field not found")
+
+    submission.field_id = field.id
+    submission.date = payload.date
+    submission.time = payload.time
+    submission.meters = [
+        MeterReading(
+            meter_number=meter.meter_number,
+            orange_fruit=meter.orange_fruit,
+            white_pink_fruit=meter.white_pink_fruit,
+            white_fruit=meter.white_fruit,
+            big_green_fruit=meter.big_green_fruit,
+            small_green_fruit=meter.small_green_fruit,
+            opened_flowers=meter.opened_flowers,
+            buds=meter.buds,
+        )
+        for meter in payload.meters
+    ]
+    db.commit()
+
+    return _get_submission_or_404(db, submission.id)
+
+
+@app.delete("/submissions/{submission_id}", status_code=204)
+def cancel_submission(
+    submission_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    submission = _get_own_pending_submission(db, submission_id, current_user)
+    db.delete(submission)
+    db.commit()
+    return Response(status_code=204)
+
+
 # ---------- Admin endpoints ----------
 
 @app.post("/admin/users", response_model=schemas.UserOut, status_code=201)

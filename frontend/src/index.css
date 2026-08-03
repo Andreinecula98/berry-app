@@ -56,10 +56,16 @@ label {
 
 input,
 select {
+  width: 100%;
   padding: 0.55rem 0.7rem;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 1rem;
+  font-family: inherit;
+  line-height: 1.4;
+  background-color: white;
+  color: inherit;
+  box-sizing: border-box;
 }
 
 button {
@@ -81,6 +87,34 @@ button:disabled {
 button.secondary {
   background: #e5e7eb;
   color: #1f2937;
+}
+
+.password-field {
+  position: relative;
+  display: flex;
+}
+
+.password-field input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 2.4rem;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  background: transparent;
+  color: #6b7280;
+}
+
+.password-toggle:hover {
+  color: #374151;
 }
 
 button.danger {
@@ -137,7 +171,7 @@ button.danger {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 1rem;
-  align-items: end;
+  align-items: start;
 }
 
 .table-scroll {
@@ -147,7 +181,7 @@ button.danger {
 }
 
 .table-scroll table {
-  min-width: 560px;
+  min-width: 640px;
 }
 
 @media (max-width: 640px) {
@@ -266,6 +300,28 @@ td {
   width: auto;
 }
 
+.row-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.row-actions button {
+  width: auto;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 480px) {
+  .row-actions {
+    flex-direction: column;
+  }
+
+  .row-actions button {
+    width: 100%;
+  }
+}
+
 .user-list {
   list-style: none;
   padding: 0;
@@ -341,8 +397,20 @@ td {
 
 .meter-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
+}
+
+@media (max-width: 700px) {
+  .meter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 420px) {
+  .meter-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .detail-row td {

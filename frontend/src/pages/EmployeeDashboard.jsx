@@ -49,6 +49,7 @@ export default function EmployeeDashboard() {
   const [meters, setMeters] = useState([createMeter()]);
   const [submissions, setSubmissions] = useState([]);
   const [expandedSubmissions, setExpandedSubmissions] = useState(() => new Set());
+  const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { auth, logout } = useAuth();
@@ -77,11 +78,20 @@ export default function EmployeeDashboard() {
     loadData();
   }, []);
 
-  function updateMeter(index, key, value) {
+  function updateMeter(index, key, rawValue) {
     setMeters((current) =>
-      current.map((meter, meterIndex) =>
-        meterIndex === index ? { ...meter, [key]: Number(value) } : meter,
-      ),
+      current.map((meter, meterIndex) => {
+        if (meterIndex !== index) {
+          return meter;
+        }
+        let value = rawValue;
+        // If the field still holds the default "0" and the user typed another
+        // digit, drop the leading zero instead of showing e.g. "04".
+        if (String(meter[key]) === "0" && value.length === 2 && value.includes("0")) {
+          value = value.replace("0", "");
+        }
+        return { ...meter, [key]: Number(value) };
+      }),
     );
   }
 
@@ -101,7 +111,7 @@ export default function EmployeeDashboard() {
     setError("");
     setLoading(true);
     try {
-      await api.post("/submissions", {
+      const payload = {
         field_id: Number(fieldId),
         date,
         time: time || null,
@@ -109,15 +119,66 @@ export default function EmployeeDashboard() {
           meter_number: index + 1,
           ...meter,
         })),
-      });
+      };
+
+      const { data: saved } = editingId
+        ? await api.put(`/submissions/${editingId}`, payload)
+        : await api.post("/submissions", payload);
+
       setTime("");
       setMeters([createMeter()]);
       setDate(todayValue());
+      setEditingId(null);
       await loadSubmissions();
+      setExpandedSubmissions((current) => new Set(current).add(saved.id));
     } catch (err) {
       setError(err.response?.data?.detail || "An error occurred");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function handleEdit(submission) {
+    setError("");
+    setEditingId(submission.id);
+    setFieldId(String(submission.field.id));
+    setDate(submission.date);
+    setTime(submission.time || "");
+    setMeters(
+      submission.meters.map((meter) => ({
+        orange_fruit: meter.orange_fruit,
+        white_pink_fruit: meter.white_pink_fruit,
+        white_fruit: meter.white_fruit,
+        big_green_fruit: meter.big_green_fruit,
+        small_green_fruit: meter.small_green_fruit,
+        opened_flowers: meter.opened_flowers,
+        buds: meter.buds,
+      })),
+    );
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setTime("");
+    setMeters([createMeter()]);
+    setDate(todayValue());
+    setError("");
+  }
+
+  async function handleCancelSubmission(submission) {
+    if (!window.confirm("Cancel this submission request? This cannot be undone.")) {
+      return;
+    }
+    setError("");
+    try {
+      await api.delete(`/submissions/${submission.id}`);
+      if (editingId === submission.id) {
+        cancelEdit();
+      }
+      await loadSubmissions();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Could not cancel submission");
     }
   }
 
@@ -150,7 +211,7 @@ export default function EmployeeDashboard() {
 
       <main className="content">
         <div className="card stack">
-          <h2>Submit daily count</h2>
+          <h2>{editingId ? "Edit submission" : "Submit daily count"}</h2>
           <form onSubmit={handleSubmit} className="stack">
             <div className="form-grid">
               <label>
@@ -209,8 +270,13 @@ export default function EmployeeDashboard() {
               <button type="button" className="secondary" onClick={addMeter} disabled={meters.length >= 3}>
                 Add meter (max 3)
               </button>
+              {editingId && (
+                <button type="button" className="secondary" onClick={cancelEdit}>
+                  Cancel edit
+                </button>
+              )}
               <button type="submit" disabled={loading || !fieldId}>
-                {loading ? "Submitting..." : "Submit for approval"}
+                {loading ? "Saving..." : editingId ? "Save changes" : "Submit for approval"}
               </button>
             </div>
             {error && <p className="error">{error}</p>}
@@ -229,6 +295,7 @@ export default function EmployeeDashboard() {
                   <th>Status</th>
                   <th>Submitted At</th>
                   <th>Details</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -254,10 +321,26 @@ export default function EmployeeDashboard() {
                             {isExpanded ? "▾ Details" : "▸ Details"}
                           </button>
                         </td>
+                        <td>
+                          {submission.status === "pending" && (
+                            <div className="row-actions">
+                              <button type="button" className="secondary" onClick={() => handleEdit(submission)}>
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="danger"
+                                onClick={() => handleCancelSubmission(submission)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
+                        </td>
                       </tr>
                       {isExpanded && (
                         <tr className="detail-row">
-                          <td colSpan={6}>
+                          <td colSpan={7}>
                             <div className="submission-detail">
                               <div className="table-scroll">
                                 <table className="detail-table">
@@ -299,7 +382,7 @@ export default function EmployeeDashboard() {
                 })}
                 {submissions.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="empty">No submissions yet</td>
+                    <td colSpan={7} className="empty">No submissions yet</td>
                   </tr>
                 )}
               </tbody>

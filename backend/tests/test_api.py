@@ -368,6 +368,107 @@ def test_export_excel_and_pdf(client, admin_token):
 
 
 
+def test_employee_can_edit_and_cancel_pending_submission(client, admin_token):
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    field_resp = client.post(
+        "/admin/fields",
+        json={"name": "TL TEST FIELD EDIT", "total_meters": 120},
+        headers=admin_headers,
+    )
+    assert field_resp.status_code == 201
+    field_id = field_resp.json()["id"]
+
+    login_resp = client.post("/auth/login", json={"username": "ion_test", "password": "parola123"})
+    assert login_resp.status_code == 200
+    emp_headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
+
+    submit_resp = client.post(
+        "/submissions",
+        json={
+            "field_id": field_id,
+            "date": "2026-07-31",
+            "time": "07:15:00",
+            "meters": METER_PAYLOAD,
+        },
+        headers=emp_headers,
+    )
+    assert submit_resp.status_code == 201
+    submission_id = submit_resp.json()["id"]
+
+    # Editing a pending submission updates its data.
+    update_resp = client.put(
+        f"/submissions/{submission_id}",
+        json={
+            "field_id": field_id,
+            "date": "2026-08-01",
+            "time": "08:00:00",
+            "meters": METER_PAYLOAD[:1],
+        },
+        headers=emp_headers,
+    )
+    assert update_resp.status_code == 200
+    updated = update_resp.json()
+    assert updated["date"] == "2026-08-01"
+    assert len(updated["meters"]) == 1
+
+    # Cancelling removes the submission entirely.
+    cancel_resp = client.delete(f"/submissions/{submission_id}", headers=emp_headers)
+    assert cancel_resp.status_code == 204
+
+    mine_resp = client.get("/submissions/me", headers=emp_headers)
+    assert mine_resp.status_code == 200
+    assert all(submission["id"] != submission_id for submission in mine_resp.json())
+
+
+def test_cannot_edit_or_cancel_reviewed_submission(client, admin_token):
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    field_resp = client.post(
+        "/admin/fields",
+        json={"name": "TL TEST FIELD REVIEWED", "total_meters": 120},
+        headers=admin_headers,
+    )
+    assert field_resp.status_code == 201
+    field_id = field_resp.json()["id"]
+
+    login_resp = client.post("/auth/login", json={"username": "ion_test", "password": "parola123"})
+    assert login_resp.status_code == 200
+    emp_headers = {"Authorization": f"Bearer {login_resp.json()['access_token']}"}
+
+    submit_resp = client.post(
+        "/submissions",
+        json={
+            "field_id": field_id,
+            "date": "2026-07-31",
+            "time": "07:15:00",
+            "meters": METER_PAYLOAD,
+        },
+        headers=emp_headers,
+    )
+    submission_id = submit_resp.json()["id"]
+
+    review_resp = client.patch(
+        f"/admin/submissions/{submission_id}", json={"status": "approved"}, headers=admin_headers
+    )
+    assert review_resp.status_code == 200
+
+    update_resp = client.put(
+        f"/submissions/{submission_id}",
+        json={
+            "field_id": field_id,
+            "date": "2026-08-01",
+            "time": "08:00:00",
+            "meters": METER_PAYLOAD,
+        },
+        headers=emp_headers,
+    )
+    assert update_resp.status_code == 400
+
+    cancel_resp = client.delete(f"/submissions/{submission_id}", headers=emp_headers)
+    assert cancel_resp.status_code == 400
+
+
 def test_admin_can_reset_employee_password(client, admin_token):
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
 
